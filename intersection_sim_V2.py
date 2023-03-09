@@ -34,7 +34,7 @@ WEST_CAR_PROBABILITY = 0.05
 
 TURN_PROBABILITY = 0.33
 LEFT_TURN_PROBABILITY = 0.5
-HUMAN_PROBABILITY = 0.5
+HUMAN_PROBABILITY = 0.2
 
 #Classes
 
@@ -413,7 +413,7 @@ class Simulation:
         print(times)
 
     def output_to_CSV(self):
-        f = open("output.csv", 'w')
+        f = open("output_SD02.csv", 'w')
         f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction\n")
         for car in self.completed_cars:
             f.write(str(car.name) + "," + str(car.is_human) + "," + str(car.start_time) + "," + str(car.elapsed_time) + "," + str(car.direction_from) + "," + str(car.direction_to) + "\n")
