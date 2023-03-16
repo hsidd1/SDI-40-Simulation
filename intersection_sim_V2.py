@@ -36,6 +36,15 @@ TURN_PROBABILITY = 0.33
 LEFT_TURN_PROBABILITY = 0.5
 HUMAN_PROBABILITY = 0
 
+FENDERBENDER_PROBABILITY_HUMAN = 0.02
+FENDERBENDER_PROBABILITY_SDC = 0.01
+FATAL_PROBABILITY_HUMAN = 0.002
+FATAL_PROBABILITY_SDC = 0.001
+
+FENDERBENDER_TIME = 20
+FATAL_TIME = 120
+
+
 #Classes
 
 class Driver:
@@ -49,6 +58,7 @@ class Driver:
         self.direction_to = direction_to
         self.elapsed_time = 0
         self.busy_time = arrival_time
+        self.crashed = False
 
     def get_from_to(self):
         return [self.direction_from, self.direction_to]
@@ -151,9 +161,10 @@ class Simulation:
         self.driver_queue = DriverQueue()
         self.generate_arrivals()
         self.completed_cars = []
+        self.crashed_cars = []
 
     def run(self):
-        while len(self.completed_cars) < self.total_cars:
+        while len(self.completed_cars) + len(self.crashed_cars) < self.total_cars:
             #print("The current time is ", self.clock)
             self.execute_events()
             self.driver_queue.elapse_driver_time()
@@ -308,12 +319,32 @@ class Simulation:
             self.num_cars += 1
 
     def execute_clear(self, driver):
+        possible_crash_time = self.execute_crash(driver)
+        self.clock += possible_crash_time
         driver.elapsed_time = self.clock - driver.start_time
-        self.completed_cars.append(driver)
+        if possible_crash_time > 0:
+            driver.crashed = True
+            self.crashed_cars.append(driver)
+        else:
+            self.completed_cars.append(driver)
         self.driver_queue.intersection.pop(0)
         #print("Driver ", driver.name, " just left the intersection after ", driver.elapsed_time, "seconds")
         if len(self.driver_queue.intersection) == 0:
             self.intersection_free = True
+
+    def execute_crash(self, driver):
+        r = random.random()
+        if r < FATAL_PROBABILITY_SDC and not driver.is_human:
+            return FATAL_TIME
+        elif r < FATAL_PROBABILITY_HUMAN and driver.is_human:
+            return FATAL_TIME
+        elif r < FENDERBENDER_PROBABILITY_SDC and not driver.is_human:
+            return FENDERBENDER_TIME
+        elif r < FENDERBENDER_PROBABILITY_HUMAN and driver.is_human:
+            return FENDERBENDER_TIME
+        else:
+            return 0
+
 
     def execute_stop(self, driver):
         desire = driver.get_from_to()
@@ -414,9 +445,9 @@ class Simulation:
 
     def output_to_CSV(self):
         f = open("output_SDtest.csv", 'w')
-        f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction\n")
+        f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction,Crashed\n")
         for car in self.completed_cars:
-            f.write(str(car.name) + "," + str(car.is_human) + "," + str(car.start_time) + "," + str(car.elapsed_time) + "," + str(car.direction_from) + "," + str(car.direction_to) + "\n")
+            f.write(str(car.name) + "," + str(car.is_human) + "," + str(car.start_time) + "," + str(car.elapsed_time) + "," + str(car.direction_from) + "," + str(car.direction_to) + str(car.crashed) + "\n")
         f.close()
         
 
