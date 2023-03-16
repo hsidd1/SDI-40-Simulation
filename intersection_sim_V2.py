@@ -34,11 +34,11 @@ WEST_CAR_PROBABILITY = 0.05
 
 TURN_PROBABILITY = 0.33
 LEFT_TURN_PROBABILITY = 0.5
-HUMAN_PROBABILITY = 0
+HUMAN_PROBABILITY = 0.9
 
-FENDERBENDER_PROBABILITY_HUMAN = 0.02
+FENDERBENDER_PROBABILITY_HUMAN = 0.05
 FENDERBENDER_PROBABILITY_SDC = 0.01
-FATAL_PROBABILITY_HUMAN = 0.002
+FATAL_PROBABILITY_HUMAN = 0.005
 FATAL_PROBABILITY_SDC = 0.001
 
 FENDERBENDER_TIME = 20
@@ -58,7 +58,8 @@ class Driver:
         self.direction_to = direction_to
         self.elapsed_time = 0
         self.busy_time = arrival_time
-        self.crashed = False
+        self.crashed = 0
+        self.dead = 0
 
     def get_from_to(self):
         return [self.direction_from, self.direction_to]
@@ -154,6 +155,13 @@ class Simulation:
 
     def __init__(self, total_cars):
         self.num_cars = 0
+        self.num_humans = 0
+        self.num_SDC = 0
+        self.human_fenders = 0
+        self.human_fatals = 0
+        self.sdc_fenders = 0
+        self.sdc_fatals = 0
+
         self.total_cars = total_cars
         self.clock = 0
 
@@ -161,10 +169,9 @@ class Simulation:
         self.driver_queue = DriverQueue()
         self.generate_arrivals()
         self.completed_cars = []
-        self.crashed_cars = []
 
     def run(self):
-        while len(self.completed_cars) + len(self.crashed_cars) < self.total_cars:
+        while len(self.completed_cars) < self.total_cars:
             #print("The current time is ", self.clock)
             self.execute_events()
             self.driver_queue.elapse_driver_time()
@@ -323,10 +330,10 @@ class Simulation:
         self.clock += possible_crash_time
         driver.elapsed_time = self.clock - driver.start_time
         if possible_crash_time > 0:
-            driver.crashed = True
-            self.crashed_cars.append(driver)
-        else:
-            self.completed_cars.append(driver)
+            driver.crashed = 1
+            if possible_crash_time == FATAL_TIME:
+                driver.dead = 1
+        self.completed_cars.append(driver)
         self.driver_queue.intersection.pop(0)
         #print("Driver ", driver.name, " just left the intersection after ", driver.elapsed_time, "seconds")
         if len(self.driver_queue.intersection) == 0:
@@ -442,18 +449,55 @@ class Simulation:
         for car in self.completed_cars:
             times.append(car.elapsed_time)
         print(times)
+        return sum(times)/len(times)
+    
+    def average_time(self):
+        times = []
+        for car in self.completed_cars:
+            times.append(car.elapsed_time)
+        return sum(times)/len(times)
 
     def output_to_CSV(self):
         f = open("output_SDtest.csv", 'w')
-        f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction,Crashed\n")
+        f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction,Crashed,Dead\n")
         for car in self.completed_cars:
-            f.write(str(car.name) + "," + str(car.is_human) + "," + str(car.start_time) + "," + str(car.elapsed_time) + "," + str(car.direction_from) + "," + str(car.direction_to) + str(car.crashed) + "\n")
+            if car.is_human:
+                self.num_humans += 1
+                if car.crashed == 1:
+                    if car.dead == 1:
+                        self.human_fatals += 1
+                    else:
+                        self.human_fenders += 1
+            else:
+                self.num_SDC += 1
+                if car.crashed == 1:
+                    if car.dead == 1:
+                        self.sdc_fatals += 1
+                    else:
+                        self.sdc_fenders += 1
+            f.write(str(car.name) + "," + str(car.is_human) + "," + str(car.start_time) + "," + str(car.elapsed_time) + "," + str(car.direction_from) + "," + str(car.direction_to) +"," + str(car.crashed) + "," + str(car.dead) + "\n")
         f.close()
         
+    def crash_report_CSV(self):
+        f = open("crash_report.csv", 'w')
+        f.write("Type,Number of Cars,Total Crashes,Fender Benders,Fatal Crashes\n")
+        f.write("Human," + str(self.num_humans) + "," + str(self.human_fatals+self.human_fenders) + "," + str(self.human_fenders) + "," + str(self.human_fatals) + "\n")
+        f.write("SDC," + str(self.num_SDC) + "," + str(self.sdc_fatals+self.sdc_fenders) + "," + str(self.sdc_fenders) + "," + str(self.sdc_fatals) + "\n")
+        f.write("Both,"+ str(self.num_SDC+self.num_humans) + "," + str(self.sdc_fatals+self.sdc_fenders+self.human_fenders+self.human_fatals) + "," + str(self.sdc_fenders+self.human_fenders) + "," + str(self.sdc_fatals+self.human_fatals) + "\n")
+        f.close()
+    
+    def output_times_CSV(self):
+        f = open("car_times_report.csv", 'w')
+        f.write("Times,Average:," + str(self.output_times()) + "\n")
+        for car in self.completed_cars:
+            f.write(str(car.elapsed_time) + "\n")
+        f.close()
 
 
 def main():
     sim = Simulation(100000)
     sim.run()
-    sim.output_times()
+    #sim.output_times()
     sim.output_to_CSV()
+    sim.crash_report_CSV()
+    sim.output_times_CSV()
