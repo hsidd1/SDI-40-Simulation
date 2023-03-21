@@ -37,6 +37,9 @@ STRAIGHT_CLEAR_TIME = 10
 RIGHT_CLEAR_TIME = 11
 LEFT_CLEAR_TIME = 12
 
+HUMAN_EMISSIONS_RATE = 0.91
+SELF_EMISSIONS_RATE = 0.10
+
 
 class Driver:
 
@@ -47,6 +50,7 @@ class Driver:
         self.source = source
         self.destination = destination
         self.elapsed_time = 0
+        self.emissions = 0
     
     #Returns driver instance stop time
     def get_stop_time(self):
@@ -123,6 +127,10 @@ class Simulation:
         self.generate_arrival()
         self.print_events = PRINT_EVENTS
         self.data = []
+        self.num_human = 0
+        self.num_sdc = 0
+        self.human_emissions = 0
+        self.sdc_emissions = 0
 
     #Enable printing events as the simulation runs
     def enable_print_events(self):
@@ -227,10 +235,11 @@ class Simulation:
     
     #Create departure event for the first driver from the queue in the passed direction
     def depart_from(self, direction):
-        
+
         #Make departure event for first car in North queue
         if direction == N:
             clear_time = self.clock + self.north[0].get_clear_time()
+
             new_event = Event(DEPARTURE, clear_time, N)
             driver = self.north.pop(0) #Car progessing into the intersection
 
@@ -252,6 +261,22 @@ class Simulation:
             new_event = Event(DEPARTURE, clear_time, W)
             driver = self.west.pop(0) #Car progessing into the intersection
             
+
+        if driver.driver_type == SELF_DRIVEN:
+            emissions_rate = SELF_EMISSIONS_RATE
+            self.num_sdc += 1
+        else:
+            emissions_rate = HUMAN_EMISSIONS_RATE
+            self.num_human += 1
+
+        emissions = clear_time * emissions_rate
+        driver.emissions += emissions
+
+        if driver.driver_type == SELF_DRIVEN:
+            self.sdc_emissions += emissions
+        else:
+            self.human_emissions += emissions
+
         self.events.add_event(new_event)
         self.intersection_free = False
         driver.elapsed_time = clear_time - driver.arrival_time
@@ -377,6 +402,13 @@ class Simulation:
         for driver in self.data:
             f.write(str(driver.name) + "," + str(driver.type) + "," + str(driver.arrival_time) + "," + str(driver.elapsed_time) + "," + str(driver.source) + "," + str(driver.destination) + "\n")
         f.close()
+    
+    def emissions_report_csv(self):
+        f = open("emissions_report.csv", 'w')
+        f.write("Car Type, Number of Vehicles, Average emission per vehicle, Total emissions \n")
+        f.write("Human," + str(self.num_human) + "," + str(self.human_emissions/self.num_human) + "," + str(self.human_emissions) + "\n")
+        f.write("SDC," + str(self.num_sdc) + "," + str(self.sdc_emissions/self.num_sdc) + "," + str(self.sdc_emissions) + "\n")
+        f.write("Both," + str(self.num_human+self.num_sdc) + "," + str((self.human_emissions+self.sdc_emissions)/(self.num_human+self.num_sdc)) + "," + str(self.human_emissions+self.sdc_emissions) + "\n")
         
 
 
@@ -384,9 +416,10 @@ def average(L):
     return sum(L)/len(L)
 
 def main():
-    sim = Simulation(1000)
+    sim = Simulation(100000)
     sim.run()
     sim.average_time()
+    sim.emissions_report_csv()
     print("Done!")
 
 main()
