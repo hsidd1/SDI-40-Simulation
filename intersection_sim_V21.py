@@ -38,7 +38,7 @@ RIGHT_CLEAR_TIME = 11
 LEFT_CLEAR_TIME = 12
 
 HUMAN_EMISSIONS_RATE = 0.91
-SELF_EMISSIONS_RATE = 0.10
+SELF_EMISSIONS_RATE = 0.30
 
 
 class Driver:
@@ -269,8 +269,8 @@ class Simulation:
             emissions_rate = HUMAN_EMISSIONS_RATE
             self.num_human += 1
 
-        emissions = clear_time * emissions_rate
-        driver.emissions += emissions
+        emissions = driver.get_clear_time() * emissions_rate
+        driver.emissions = emissions
 
         if driver.driver_type == SELF_DRIVEN:
             self.sdc_emissions += emissions
@@ -398,9 +398,9 @@ class Simulation:
         
     def output_to_csv(self):
         f = open("output.csv", 'w')
-        f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction\n")
+        f.write("Name,Type,Start Time,Elapsed Time,Start Direction,End Direction,Emissions\n")
         for driver in self.data:
-            f.write(str(driver.name) + "," + str(driver.type) + "," + str(driver.arrival_time) + "," + str(driver.elapsed_time) + "," + str(driver.source) + "," + str(driver.destination) + "\n")
+            f.write(str(driver.name) + "," + str(driver.driver_type) + "," + str(driver.arrival_time) + "," + str(driver.elapsed_time) + "," + str(driver.source) + "," + str(driver.destination) + "," + str(driver.emissions) + "\n")
         f.close()
     
     def emissions_report_csv(self):
@@ -416,10 +416,12 @@ def average(L):
     return sum(L)/len(L)
 
 def main():
-    sim = Simulation(100000)
+    sim = Simulation(100001)
     sim.run()
     sim.average_time()
+    sim.output_to_csv()
     sim.emissions_report_csv()
+    print(len(sim.data))
     print("Done!")
 
 main()
